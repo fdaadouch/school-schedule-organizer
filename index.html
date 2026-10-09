@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>School Schedule Organizer</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --primary: #1d4ed8;
+      --primary-soft: #dfe9ff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --success: #0f766e;
+      --warning: #f59e0b;
+      --shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: linear-gradient(180deg, #eef4ff 0%, var(--bg) 100%);
+      color: var(--text);
+    }
+
+    .app {
+      max-width: 1200px;
+      margin: 40px auto;
+      padding: 20px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: clamp(2rem, 3vw, 3rem);
+      color: var(--primary);
+    }
+
+    .header p {
+      margin: 10px auto 0;
+      max-width: 700px;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 24px;
+    }
+
+    .input-panel {
+      margin-bottom: 28px;
+    }
+
+    label {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: var(--text);
+      font-size: 1.05rem;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 180px;
+      resize: vertical;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 18px;
+      font-size: 1rem;
+      line-height: 1.6;
+      background: #fbfdff;
+      color: var(--text);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.12);
+    }
+
+    .button-row {
+      margin-top: 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 12px 18px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    .primary-btn {
+      background: var(--primary);
+      color: white;
+    }
+
+    .secondary-btn {
+      background: var(--primary-soft);
+      color: var(--primary);
+    }
+
+    .upload-section {
+      margin-top: 18px;
+      padding: 20px;
+      background: #f9fafb;
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      text-align: center;
+    }
+
+    .upload-section input[type="file"] {
+      display: none;
+    }
+
+    .upload-label {
+      cursor: pointer;
+      background: var(--primary);
+      color: white;
+      padding: 10px 16px;
+      border-radius: 8px;
+      display: inline-block;
+      font-weight: 700;
+      transition: background 0.2s ease;
+    }
+
+    .upload-label:hover {
+      background: #1e40af;
+    }
+
+    .schedule-output {
+      margin-top: 14px;
+    }
+
+    .day-group {
+      margin-bottom: 24px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .day-header {
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      color: var(--primary);
+      font-size: 1.1rem;
+      font-weight: 700;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .schedule-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .schedule-table th,
+    .schedule-table td {
+      text-align: left;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    .schedule-table th {
+      background: #f9fafb;
+      color: var(--muted);
+      font-size: 0.82rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .schedule-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .course-name {
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .time-chip {
+      display: inline-block;
+      background: #ecfdf5;
+      color: var(--success);
+      font-weight: 700;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 0.88rem;
+    }
+
+    .room-badge {
+      display: inline-block;
+      background: #fff7ed;
+      color: #b45309;
+      font-weight: 700;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 0.88rem;
+    }
+
+    .direction {
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.5;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 18px;
+      color: var(--muted);
+      border: 1px dashed var(--border);
+      border-radius: 14px;
+      background: #fafafa;
+    }
+
+    .footer-actions {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 30px;
+      flex-wrap: wrap;
+    }
+
+    .pdf-btn {
+      background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+      color: white;
+      padding: 16px 28px;
+      font-size: 1.05rem;
+      border-radius: 12px;
+      box-shadow: 0 12px 20px rgba(22, 163, 74, 0.25);
+    }
+
+    .clear-btn {
+      background: #ef4444;
+      color: white;
+      padding: 16px 28px;
+      font-size: 1.05rem;
+      border-radius: 12px;
+      box-shadow: 0 12px 20px rgba(239, 68, 68, 0.25);
+    }
+
+    .success-msg {
+      background: #d1fae5;
+      color: #065f46;
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-top: 12px;
+      display: none;
+    }
+
+    @media (max-width: 700px) {
+      .panel {
+        padding: 18px;
+      }
+
+      .schedule-table thead {
+        display: none;
+      }
+
+      .schedule-table,
+      .schedule-table tbody,
+      .schedule-table tr,
+      .schedule-table td {
+        display: block;
+        width: 100%;
+      }
+
+      .schedule-table tr {
+        border-bottom: 1px solid var(--border);
+        padding: 8px 0;
+      }
+
+      .schedule-table td {
+        border: none;
+        padding: 8px 16px;
+      }
+
+      .schedule-table td::before {
+        content: attr(data-label);
+        display: block;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--muted);
+        text-transform: uppercase;
+        margin-bottom: 6px;
+      }
+    }
+
+    @media print {
+      body {
+        background: white;
+      }
+
+      .input-panel,
+      .button-row,
+      .upload-section,
+      .footer-actions,
+      .pdf-btn,
+      .primary-btn,
+      .secondary-btn,
+      .clear-btn {
+        display: none !important;
+      }
+
+      .app {
+        max-width: 100%;
+        margin: 0;
+        padding: 0;
+      }
+
+      .panel {
+        box-shadow: none;
+        border: none;
+        padding: 0;
+      }
+
+      .day-group {
+        page-break-inside: avoid;
+        break-inside: avoid;
+        margin-bottom: 18px;
+      }
+
+      .schedule-table th {
+        background: #f3f4f6;
+      }
+
+      .direction {
+        color: #374151;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <h1>School Schedule Organizer</h1>
+      <p>Paste your messy schedule below or upload a file and turn it into a neat weekly timetable.</p>
+    </header>
+
+    <section class="panel input-panel">
+      <label for="scheduleInput">Paste your raw schedule here</label>
+      <textarea id="scheduleInput" placeholder="Example:
+Monday
+Biology 101 9:00 AM - 10:30 AM Room 302
+History 11:00 AM - 12:15 PM Room 105
+PE 3:00 PM - 4:00 PM Gym
+
+Tuesday
+English 9:30 AM - 10:45 AM Room 210
+Chemistry Lab 1:00 PM - 2:30 PM Lab 10"></textarea>
+
+      <div class="button-row">
+        <button class="primary-btn" id="parseBtn">Parse Schedule</button>
+        <button class="secondary-btn" id="sampleBtn" type="button">Load Sample</button>
+      </div>
+
+      <div class="upload-section">
+        <p style="margin: 0 0 12px 0; color: var(--muted);">Or upload a text file (.txt):</p>
+        <label class="upload-label" for="fileInput">Choose File</label>
+        <input type="file" id="fileInput" accept=".txt" />
+        <div class="success-msg" id="successMsg">File loaded successfully!</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div id="scheduleOutput" class="schedule-output"></div>
+    </section>
+
+    <div class="footer-actions">
+      <button class="pdf-btn" id="downloadBtn" type="button">Download Schedule as PDF</button>
+      <button class="clear-btn" id="clearBtn" type="button">Clear All</button>
+    </div>
+  </div>
+
+  <script>
+    // ------------------------------------------------------------
+    // IMPORTANT:
+    // Update this mapping whenever your school layout changes.
+    //
+    // How it works:
+    // - Each room pattern is checked in order.
+    // - If a room matches one of these patterns, a custom direction is added.
+    // - You can add more rules here using room numbers, room names, or keywords.
+    // ------------------------------------------------------------
+    const roomDirectionRules = [
+      {
+        name: "Science Wing",
+        test: (roomText) => /(?:3\d\d|300s|science)/i.test(roomText),
+        direction: "(Third Floor - Science Wing)"
+      },
+      {
+        name: "Main Building",
+        test: (roomText) => /(?:1\d\d|100s|main building)/i.test(roomText),
+        direction: "(First Floor - Main Building)"
+      },
+      {
+        name: "Gym / Athletics",
+        test: (roomText) => /gym/i.test(roomText),
+        direction: "(Athletic Center next to the fields)"
+      },
+      {
+        name: "Computer Lab / Lab rooms",
+        test: (roomText) => /lab/i.test(roomText),
+        direction: "(Computer Lab - East Hall)"
+      }
+    ];
+
+    // Default sample data to help the student understand the app immediately
+    const sampleScheduleText = `
+Monday
+Biology 101 9:00 AM - 10:30 AM Room 302
+History 11:00 AM - 12:15 PM Room 105
+Physical Education 3:00 PM - 4:00 PM Gym
+
+Tuesday
+English Literature 9:30 AM - 10:45 AM Room 210
+Chemistry Lab 1:00 PM - 2:30 PM Lab 10
+
+Wednesday
+Algebra II 8:30 AM - 9:45 AM Room 118
+Art Studio 12:00 PM - 1:15 PM Room 320
+
+Thursday
+Computer Science 10:00 AM - 11:30 AM Lab 7
+Spanish 1:30 PM - 2:45 PM Room 101
+
+Friday
+World Geography 8:00 AM - 9:15 AM Room 305
+Music 12:00 PM - 1:00 PM Gym
+`;
+
+    const scheduleInput = document.getElementById("scheduleInput");
+    const scheduleOutput = document.getElementById("scheduleOutput");
+    const parseBtn = document.getElementById("parseBtn");
+    const sampleBtn = document.getElementById("sampleBtn");
+    const downloadBtn = document.getElementById("downloadBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const fileInput = document.getElementById("fileInput");
+    const successMsg = document.getElementById("successMsg");
+
+    function normalizeText(value) {
+      return value.replace(/\r/g, "").trim();
+    }
+
+    function getDirectionForRoom(roomText) {
+      const room = roomText || "";
+
+      for (const rule of roomDirectionRules) {
+        if (rule.test(room)) {
+          return rule.direction;
+        }
+      }
+
+      return "(Location details not mapped yet)";
+    }
+
+    function formatDayName(dayText) {
+      const normalized = dayText.trim();
+      const dayMap = {
+        mon: "Monday",
+        monday: "Monday",
+        tue: "Tuesday",
+        tues: "Tuesday",
+        tuesday: "Tuesday",
+        wed: "Wednesday",
+        weds: "Wednesday",
+        wednesday: "Wednesday",
+        thu: "Thursday",
+        thurs: "Thursday",
+        thursday: "Thursday",
+        fri: "Friday",
+        friday: "Friday",
+        sat: "Saturday",
+        saturday: "Saturday",
+        sun: "Sunday",
+        sunday: "Sunday"
+      };
+
+      return dayMap[normalized.toLowerCase()] || normalized || "Weekly Schedule";
+    }
+
+    function parseSchedule(rawText) {
+      const text = normalizeText(rawText);
+      if (!text) {
+        scheduleOutput.innerHTML = '<div class="empty-state">No schedule entered yet. Paste class data to begin.</div>';
+        return [];
+      }
+
+      const lines = text.split("\n");
+      const scheduleEntries = [];
+      let currentDay = "Weekly Schedule";
+
+      lines.forEach((line) => {
+        const cleanLine = line.trim();
+        if (!cleanLine) return;
+
+        const dayMatch = cleanLine.match(/\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/i);
+        const timeMatch = cleanLine.match(/(\d{1,2}:\d{2}\s*(?:AM|PM)\s*-\s*\d{1,2}:\d{2}\s*(?:AM|PM))/i);
+
+        // If the line is a day heading, update the active day
+        if (dayMatch) {
+          currentDay = formatDayName(dayMatch[1]);
+          if (!timeMatch) {
+            return;
+          }
+        }
+
+        if (!timeMatch) return;
+
+        // Look for room patterns like "Room 302", "Lab 10", or "Gym"
+        const roomMatch = cleanLine.match(/(?:Room|Rm|Lab|Gym|Studio|Hall)\s*#?\s*\d+[A-Za-z]?/i);
+        const roomText = roomMatch ? roomMatch[0] : "Unknown Room";
+
+        // Remove day, time, and room from the text to get the class name
+        let className = cleanLine
+          .replace(dayMatch ? dayMatch[0] : "", "")
+          .replace(timeMatch[0], "")
+          .replace(roomText, "")
+          .replace(/[-|•:]/g, " ")
+          .replace(/\s{2,}/g, " ")
+          .trim();
+
+        if (!className) {
+          className = "Class Session";
+        }
+
+        scheduleEntries.push({
+          day: currentDay,
+          time: timeMatch[0],
+          room: roomText,
+          name: className,
+          direction: getDirectionForRoom(roomText)
+        });
+      });
+
+      renderSchedule(scheduleEntries);
+      return scheduleEntries;
+    }
+
+    function renderSchedule(entries) {
+      if (!entries.length) {
+        scheduleOutput.innerHTML = '<div class="empty-state">No classes could be detected. Try a more structured schedule format.</div>';
+        return;
+      }
+
+      const grouped = {};
+      entries.forEach((entry) => {
+        if (!grouped[entry.day]) grouped[entry.day] = [];
+        grouped[entry.day].push(entry);
+      });
+
+      const orderedDays = [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+        "Weekly Schedule"
+      ];
+
+      const sortedDayKeys = orderedDays.filter(day => grouped[day]).concat(
+        Object.keys(grouped).filter(day => !orderedDays.includes(day))
+      );
+
+      scheduleOutput.innerHTML = sortedDayKeys.map((day) => {
+        const items = grouped[day];
+        const rows = items.map((item) => `
+          <tr>
+            <td data-label="Course"><span class="course-name">${escapeHtml(item.name)}</span></td>
+            <td data-label="Time"><span class="time-chip">${escapeHtml(item.time)}</span></td>
+            <td data-label="Room"><span class="room-badge">${escapeHtml(item.room)}</span></td>
+            <td data-label="Directions"><div class="direction">${escapeHtml(item.direction)}</div></td>
+          </tr>
+        `).join("");
+
+        return `
+          <div class="day-group">
+            <div class="day-header">${day}</div>
+            <table class="schedule-table">
+              <thead>
+                <tr>
+                  <th>Course</th>
+                  <th>Time</th>
+                  <th>Room</th>
+                  <th>Directions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    parseBtn.addEventListener("click", () => {
+      parseSchedule(scheduleInput.value);
+    });
+
+    sampleBtn.addEventListener("click", () => {
+      scheduleInput.value = sampleScheduleText;
+      parseSchedule(sampleScheduleText);
+    });
+
+    downloadBtn.addEventListener("click", () => {
+      window.print();
+    });
+
+    clearBtn.addEventListener("click", () => {
+      scheduleInput.value = "";
+      scheduleOutput.innerHTML = '<div class="empty-state">No schedule entered yet. Paste class data to begin.</div>';
+      fileInput.value = "";
+    });
+
+    // File upload handler
+    fileInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const text = event.target.result;
+        scheduleInput.value = text;
+        parseSchedule(text);
+
+        // Show success message
+        successMsg.style.display = "block";
+        setTimeout(() => {
+          successMsg.style.display = "none";
+        }, 3000);
+      };
+      reader.readAsText(file);
+    });
+
+    // Auto-load sample on first page open so students see the app working immediately
+    scheduleInput.value = sampleScheduleText;
+    parseSchedule(sampleScheduleText);
+  </script>
+</body>
+</html>
