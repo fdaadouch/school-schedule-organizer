@@ -75,16 +75,17 @@
 
     textarea {
       width: 100%;
-      min-height: 220px;
+      min-height: 280px;
       resize: vertical;
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 16px 18px;
-      font-size: 1rem;
+      font-size: 0.95rem;
       line-height: 1.6;
       background: #fbfdff;
       color: var(--text);
       transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      font-family: "Courier New", monospace;
     }
 
     textarea:focus {
@@ -181,7 +182,7 @@
     .schedule-table th,
     .schedule-table td {
       text-align: left;
-      padding: 14px 16px;
+      padding: 12px 14px;
       border-bottom: 1px solid var(--border);
       vertical-align: top;
     }
@@ -189,7 +190,7 @@
     .schedule-table th {
       background: #f9fafb;
       color: var(--muted);
-      font-size: 0.82rem;
+      font-size: 0.75rem;
       letter-spacing: 0.04em;
       text-transform: uppercase;
     }
@@ -201,6 +202,7 @@
     .course-name {
       font-weight: 700;
       color: var(--text);
+      font-size: 0.95rem;
     }
 
     .time-chip {
@@ -208,9 +210,9 @@
       background: #ecfdf5;
       color: var(--success);
       font-weight: 700;
-      padding: 6px 10px;
+      padding: 4px 8px;
       border-radius: 999px;
-      font-size: 0.88rem;
+      font-size: 0.8rem;
     }
 
     .room-badge {
@@ -218,14 +220,20 @@
       background: #fff7ed;
       color: #b45309;
       font-weight: 700;
-      padding: 6px 10px;
+      padding: 4px 8px;
       border-radius: 999px;
-      font-size: 0.88rem;
+      font-size: 0.8rem;
+    }
+
+    .teacher-name {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-top: 4px;
     }
 
     .direction {
       color: var(--muted);
-      font-size: 0.92rem;
+      font-size: 0.8rem;
       line-height: 1.5;
     }
 
@@ -293,21 +301,22 @@
       .schedule-table tr {
         border-bottom: 1px solid var(--border);
         padding: 8px 0;
+        margin-bottom: 12px;
       }
 
       .schedule-table td {
         border: none;
-        padding: 8px 16px;
+        padding: 6px 16px;
       }
 
       .schedule-table td::before {
         content: attr(data-label);
         display: block;
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         font-weight: 700;
         color: var(--muted);
         text-transform: uppercase;
-        margin-bottom: 6px;
+        margin-bottom: 4px;
       }
     }
 
@@ -359,19 +368,15 @@
   <div class="app">
     <header class="header">
       <h1>School Schedule Organizer</h1>
-      <p>Paste your messy schedule below or upload a file and turn it into a neat weekly timetable.</p>
+      <p>Paste your school timetable below and turn it into a clean weekly schedule view.</p>
     </header>
 
     <section class="panel input-panel">
-      <label for="scheduleInput">Paste your raw schedule here</label>
-      <textarea id="scheduleInput" placeholder="Example:
-Monday
-Biology 101 9:00 AM - 10:30 AM Room 302
-History 11:00 AM - 12:15 PM Room 105
-
-Tuesday
-English 9:30 AM - 10:45 AM Room 210
-Chemistry Lab 1:00 PM - 2:30 PM Lab 10"></textarea>
+      <label for="scheduleInput">Paste your school timetable here</label>
+      <textarea id="scheduleInput" placeholder="Paste the timetable from your school portal. It should have:
+- Period names (HR, L1, L2, etc.) on the left
+- Days (Monday, Tuesday, etc.) across the top
+- For each class: [time], subject, teacher, room code"></textarea>
 
       <div class="button-row">
         <button class="primary-btn" id="parseBtn">Parse Schedule</button>
@@ -397,305 +402,223 @@ Chemistry Lab 1:00 PM - 2:30 PM Lab 10"></textarea>
   </div>
 
   <script>
-    // ------------------------------------------------------------
-    // IMPORTANT:
-    // Update this mapping whenever your school layout changes.
-    //
-    // How it works:
-    // - Each room pattern is checked in order.
-    // - If a room matches one of these patterns, a custom direction is added.
-    // - You can add more rules here using room numbers, room names, or keywords.
-    // ------------------------------------------------------------
+    // Room direction rules for your school
     const roomDirectionRules = [
       {
-        name: "Science Wing",
-        test: (roomText) => /(?:3\d\d|300s|science|SS\s*G|SS\s*F)/i.test(roomText),
-        direction: "(School building - Science / General classrooms)"
+        name: "F Wing",
+        test: (roomText) => /SS\s*F/i.test(roomText),
+        direction: "(F Wing Classrooms)"
       },
       {
-        name: "Main Building",
-        test: (roomText) => /(?:1\d\d|100s|main building|SS\s*F)/i.test(roomText),
-        direction: "(Main Building - Front Hall)"
-      },
-      {
-        name: "Gym / Athletics",
-        test: (roomText) => /gym/i.test(roomText),
-        direction: "(Athletic Center next to the fields)"
-      },
-      {
-        name: "Computer Lab / Lab rooms",
-        test: (roomText) => /lab/i.test(roomText),
-        direction: "(Computer Lab - East Hall)"
+        name: "G Wing",
+        test: (roomText) => /SS\s*G/i.test(roomText),
+        direction: "(G Wing Classrooms)"
       }
     ];
 
-    // Default sample data to help the student understand the app immediately
-    const sampleScheduleText = `
-Monday
-Biology 101 9:00 AM - 10:30 AM Room 302
-History 11:00 AM - 12:15 PM Room 105
-
-Tuesday
-English Literature 9:30 AM - 10:45 AM Room 210
-Chemistry Lab 1:00 PM - 2:30 PM Lab 10
-
-Wednesday
-Algebra II 8:30 AM - 9:45 AM Room 118
-Art Studio 12:00 PM - 1:15 PM Room 320
-
-Thursday
-Computer Science 10:00 AM - 11:30 AM Lab 7
-Spanish 1:30 PM - 2:45 PM Room 101
-
-Friday
-World Geography 8:00 AM - 9:15 AM Room 305
-Music 12:00 PM - 1:00 PM Gym
-`;
-
-    const scheduleInput = document.getElementById("scheduleInput");
-    const scheduleOutput = document.getElementById("scheduleOutput");
-    const parseBtn = document.getElementById("parseBtn");
-    const sampleBtn = document.getElementById("sampleBtn");
-    const downloadBtn = document.getElementById("downloadBtn");
-    const clearBtn = document.getElementById("clearBtn");
-    const fileInput = document.getElementById("fileInput");
-    const successMsg = document.getElementById("successMsg");
-
-    function normalizeText(value) {
-      return value.replace(/\r/g, "").trim();
-    }
-
     function getDirectionForRoom(roomText) {
       const room = roomText || "";
-
       for (const rule of roomDirectionRules) {
         if (rule.test(room)) {
           return rule.direction;
         }
       }
-
-      return "(Location details not mapped yet)";
+      return "";
     }
 
-    function formatDayName(dayText) {
-      const normalized = dayText.trim();
-      const dayMap = {
-        mon: "Monday",
-        monday: "Monday",
-        tue: "Tuesday",
-        tues: "Tuesday",
-        tuesday: "Tuesday",
-        wed: "Wednesday",
-        weds: "Wednesday",
-        wednesday: "Wednesday",
-        thu: "Thursday",
-        thurs: "Thursday",
-        thursday: "Thursday",
-        fri: "Friday",
-        friday: "Friday",
-        sat: "Saturday",
-        saturday: "Saturday",
-        sun: "Sunday",
-        sunday: "Sunday"
-      };
+    // Parse the exact timetable format from your school
+    function parseSchoolTimetable(rawText) {
+      const text = rawText.trim();
+      if (!text) return [];
 
-      return dayMap[normalized.toLowerCase()] || normalized || "Weekly Schedule";
-    }
+      // Split into lines
+      const lines = text.split(/\n/).map(line => line.trim()).filter(line => line && !line.match(/^(Secondary Week|Timetable Week|P\s*Monday|Monday\s+Tuesday)/i));
 
-    // ------------------------------------------------------------
-    // NEW: parse school timetable files like:
-    //   P	Monday	Tuesday	Wednesday	Thursday	Friday
-    //   HR	[07:30 - 07:40]	[07:30 - 07:40]	...
-    // or pasted blocks with times and room info repeated per day.
-    // ------------------------------------------------------------
-    function parseStructuredTimetable(rawText) {
-      const text = normalizeText(rawText).replace(/\t/g, "\n");
-      if (!text) return null;
-
-      const lines = text
-        .split(/\n+/)
-        .map(line => line.trim())
-        .filter(Boolean);
-
-      if (!lines.length) return null;
-
-      const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-      const detectedDays = [];
-
-      for (const day of dayNames) {
-        if (new RegExp(day, "i").test(text)) {
-          detectedDays.push(day);
+      // Find the header row with day names
+      let headerRowIndex = -1;
+      let dayNames = [];
+      
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (/Monday|Tuesday|Wednesday|Thursday|Friday/.test(line)) {
+          headerRowIndex = i;
+          // Extract day names from the line
+          const days = line.split(/\s+/).filter(d => /Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday/.test(d));
+          dayNames = days.slice(0, 5); // Take first 5 days
+          break;
         }
       }
 
-      if (!detectedDays.length) {
-        return null;
+      if (headerRowIndex === -1 || dayNames.length === 0) {
+        return [];
       }
 
+      // Now parse the schedule blocks
       const entries = [];
-      let collecting = false;
       let currentPeriod = null;
-      let blockLines = [];
+      let periodLines = [];
 
-      const isDayHeader = (line) => /(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)/i.test(line) && line.length < 120;
-      const isMetadata = (line) => /secondary week|timetable week|p\s+Monday|Monday\s+Tuesday|Tuesday\s+Wednesday|Thursday\s+Friday/i.test(line) || /^P$/i.test(line);
-      const isPeriodLabel = (line) => /^(?:HR|SN|LN|L[1-8]|P|[A-Z]{2,5})$/i.test(line) && !isDayHeader(line) && !isMetadata(line);
+      for (let i = headerRowIndex + 1; i < lines.length; i++) {
+        const line = lines[i];
 
-      for (const line of lines) {
-        if (isMetadata(line) || isDayHeader(line)) {
-          if (collecting) {
-            // finalize current period block if we already started collecting
-          }
-          continue;
-        }
-
-        if (isPeriodLabel(line)) {
-          if (collecting && blockLines.length > 0) {
-            const parsed = parsePeriodBlock(blockLines, detectedDays);
+        // Check if this is a period label (HR, L1, L2, etc.)
+        if (/^(HR|L[1-8]|SN|LN|P)$/.test(line.trim())) {
+          if (currentPeriod && periodLines.length > 0) {
+            const parsed = parsePeriodBlock(currentPeriod, periodLines, dayNames);
             entries.push(...parsed);
           }
-          collecting = true;
-          currentPeriod = line;
-          blockLines = [];
+          currentPeriod = line.trim();
+          periodLines = [];
           continue;
         }
 
-        if (collecting) {
-          blockLines.push(line);
+        if (currentPeriod) {
+          periodLines.push(line);
         }
       }
 
-      if (collecting && blockLines.length > 0) {
-        const parsed = parsePeriodBlock(blockLines, detectedDays);
+      // Don't forget the last period
+      if (currentPeriod && periodLines.length > 0) {
+        const parsed = parsePeriodBlock(currentPeriod, periodLines, dayNames);
         entries.push(...parsed);
       }
 
-      if (entries.length) {
-        return entries;
-      }
-
-      return null;
+      return entries;
     }
 
-    function parsePeriodBlock(blockLines, detectedDays) {
-      const groups = [];
-      let currentGroup = null;
+    function parsePeriodBlock(periodName, blockLines, dayNames) {
+      const results = [];
+      const text = blockLines.join(" ");
 
-      for (const line of blockLines) {
-        const timeMatch = line.match(/^\[(\d{1,2}:\d{2}\s*(?:-|to)\s*\d{1,2}:\d{2}\s*(?:AM|PM)?)\]$/i)
-          || line.match(/^(\d{1,2}:\d{2}\s*(?:AM|PM)\s*-\s*\d{1,2}:\d{2}\s*(?:AM|PM))$/i);
+      // Extract all time blocks [HH:MM - HH:MM]
+      const timeMatches = text.match(/\[\d{2}:\d{2}\s*-\s*\d{2}:\d{2}\]/g) || [];
 
-        if (timeMatch) {
-          if (currentGroup) groups.push(currentGroup);
-          currentGroup = { time: timeMatch[1].replace(/\s*[:-]\s*/g, " - ").trim(), values: [] };
-          continue;
+      // Extract subject names, teachers, room codes
+      // These are lines that don't start with [ and aren't empty
+      const classInfo = blockLines.filter(line => !line.match(/^\[/) && line.trim());
+
+      if (timeMatches.length === 0) return results;
+
+      // Parse each day's info
+      let dayIndex = 0;
+      let classIndex = 0;
+
+      for (let i = 0; i < timeMatches.length && dayIndex < dayNames.length; i++) {
+        const time = timeMatches[i].replace(/[\[\]]/g, "").trim();
+        const day = dayNames[dayIndex];
+
+        // Collect class info for this period/day
+        let subject = "";
+        let teacher = "";
+        let room = "";
+
+        // Look ahead to collect subject, teacher, room
+        if (classIndex < classInfo.length) {
+          subject = classInfo[classIndex] || "";
+          classIndex++;
+        }
+        if (classIndex < classInfo.length && /^(Mr|Ms|Miss|Mrs)/.test(classInfo[classIndex])) {
+          teacher = classInfo[classIndex] || "";
+          classIndex++;
+        }
+        if (classIndex < classInfo.length && /SS\s*[FG]\d+/.test(classInfo[classIndex])) {
+          room = classInfo[classIndex] || "";
+          classIndex++;
         }
 
-        if (!currentGroup) continue;
+        // Only add if we have a subject
+        if (subject && subject.trim()) {
+          results.push({
+            day: day,
+            time: time,
+            room: room || "Room TBA",
+            name: subject.trim(),
+            teacher: teacher.trim(),
+            direction: getDirectionForRoom(room)
+          });
+        }
 
-        if (line.length === 0) continue;
-        currentGroup.values.push(line);
+        dayIndex++;
       }
-
-      if (currentGroup) {
-        groups.push(currentGroup);
-      }
-
-      const results = [];
-
-      groups.forEach((group, index) => {
-        const day = detectedDays[index % detectedDays.length] || "Monday";
-        const cleanValues = group.values.filter(v => v && !/^\d{1,2}:\d{2}\s*(?:AM|PM)/i.test(v));
-
-        if (!cleanValues.length) return;
-
-        const subject = cleanValues[0] || "Class";
-        const teacher = cleanValues.find(v => /^(Mr|Ms|Miss|Mrs)\b/i.test(v)) || "Teacher not listed";
-        const room = cleanValues.find(v => /(?:SS\s*|Room|Lab|Gym|Hall|Studio|F\d+|G\d+)/i.test(v)) || "Room not listed";
-
-        results.push({
-          day,
-          time: normalizeTime(group.time),
-          room: room,
-          name: subject,
-          direction: getDirectionForRoom(room),
-          teacher: teacher
-        });
-      });
 
       return results;
     }
 
-    function normalizeTime(value) {
-      if (!value) return "Time not listed";
-      return value
-        .replace(/\s+/g, " ")
-        .trim();
-    }
+    // Fallback parser for simpler formats
+    function parseSimpleSchedule(rawText) {
+      const text = rawText.trim();
+      if (!text) return [];
 
-    function parseSchedule(rawText) {
-      const text = normalizeText(rawText);
-      if (!text) {
-        scheduleOutput.innerHTML = '<div class="empty-state">No schedule entered yet. Paste class data to begin.</div>';
-        return [];
-      }
-
-      const structured = parseStructuredTimetable(text);
-      if (structured && structured.length) {
-        renderSchedule(structured);
-        return structured;
-      }
-
-      // Fallback for simpler single-line schedule blocks
       const lines = text.split("\n");
-      const scheduleEntries = [];
+      const entries = [];
       let currentDay = "Weekly Schedule";
 
       lines.forEach((line) => {
         const cleanLine = line.trim();
         if (!cleanLine) return;
 
-        const dayMatch = cleanLine.match(/\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/i);
+        const dayMatch = cleanLine.match(/\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/i);
         const timeMatch = cleanLine.match(/(\d{1,2}:\d{2}\s*(?:AM|PM)\s*-\s*\d{1,2}:\d{2}\s*(?:AM|PM))/i);
 
         if (dayMatch) {
-          currentDay = formatDayName(dayMatch[1]);
+          currentDay = dayMatch[1];
           if (!timeMatch) return;
         }
 
         if (!timeMatch) return;
 
-        const roomMatch = cleanLine.match(/(?:Room|Rm|Lab|Gym|Studio|Hall|SS\s*F\d+|SS\s*G\d+)\s*#?\s*[A-Za-z0-9/ ]+/i);
-        const roomText = roomMatch ? roomMatch[0].replace(/^.*?(Room|Lab|Gym|Hall|Studio|SS)/i, "$1").trim() : "Unknown Room";
+        const roomMatch = cleanLine.match(/(?:Room|Rm|Lab|Gym|SS\s*[FG]\d+)\s*[A-Za-z0-9\/ ]*/i);
+        const roomText = roomMatch ? roomMatch[0] : "Room TBA";
 
         let className = cleanLine
           .replace(dayMatch ? dayMatch[0] : "", "")
           .replace(timeMatch[0], "")
           .replace(roomText, "")
-          .replace(/[-|•:]/g, " ")
           .replace(/\s{2,}/g, " ")
           .trim();
 
-        if (!className) {
-          className = "Class Session";
-        }
+        if (!className) return;
 
-        scheduleEntries.push({
+        entries.push({
           day: currentDay,
           time: timeMatch[0],
           room: roomText,
           name: className,
+          teacher: "",
           direction: getDirectionForRoom(roomText)
         });
       });
 
-      renderSchedule(scheduleEntries);
-      return scheduleEntries;
+      return entries;
+    }
+
+    function parseSchedule(rawText) {
+      const text = rawText.trim();
+      if (!text) {
+        scheduleOutput.innerHTML = '<div class="empty-state">No schedule entered yet. Paste your timetable to begin.</div>';
+        return [];
+      }
+
+      // Try school timetable format first
+      let entries = parseSchoolTimetable(text);
+
+      // Fall back to simple format if school timetable parsing returns nothing
+      if (!entries || entries.length === 0) {
+        entries = parseSimpleSchedule(text);
+      }
+
+      if (!entries || entries.length === 0) {
+        scheduleOutput.innerHTML = '<div class="empty-state">No classes could be detected. Make sure your timetable includes day names (Monday-Friday) and times.</div>';
+        return [];
+      }
+
+      renderSchedule(entries);
+      return entries;
     }
 
     function renderSchedule(entries) {
-      if (!entries.length) {
-        scheduleOutput.innerHTML = '<div class="empty-state">No classes could be detected. Try a more structured schedule format.</div>';
+      if (!entries || entries.length === 0) {
+        scheduleOutput.innerHTML = '<div class="empty-state">No classes to display.</div>';
         return;
       }
 
@@ -705,17 +628,7 @@ Music 12:00 PM - 1:00 PM Gym
         grouped[entry.day].push(entry);
       });
 
-      const orderedDays = [
-        "Monday",
-        "Tuesday",
-        "Wednesday",
-        "Thursday",
-        "Friday",
-        "Saturday",
-        "Sunday",
-        "Weekly Schedule"
-      ];
-
+      const orderedDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "Weekly Schedule"];
       const sortedDayKeys = orderedDays.filter(day => grouped[day]).concat(
         Object.keys(grouped).filter(day => !orderedDays.includes(day))
       );
@@ -724,10 +637,10 @@ Music 12:00 PM - 1:00 PM Gym
         const items = grouped[day];
         const rows = items.map((item) => `
           <tr>
-            <td data-label="Course"><span class="course-name">${escapeHtml(item.name)}</span></td>
             <td data-label="Time"><span class="time-chip">${escapeHtml(item.time)}</span></td>
+            <td data-label="Course"><span class="course-name">${escapeHtml(item.name)}</span></td>
+            <td data-label="Teacher"><div class="teacher-name">${escapeHtml(item.teacher)}</div></td>
             <td data-label="Room"><span class="room-badge">${escapeHtml(item.room)}</span></td>
-            <td data-label="Directions"><div class="direction">${escapeHtml(item.direction)}</div></td>
           </tr>
         `).join("");
 
@@ -737,10 +650,10 @@ Music 12:00 PM - 1:00 PM Gym
             <table class="schedule-table">
               <thead>
                 <tr>
-                  <th>Course</th>
                   <th>Time</th>
+                  <th>Course</th>
+                  <th>Teacher</th>
                   <th>Room</th>
-                  <th>Directions</th>
                 </tr>
               </thead>
               <tbody>
@@ -753,7 +666,7 @@ Music 12:00 PM - 1:00 PM Gym
     }
 
     function escapeHtml(str) {
-      return String(str)
+      return String(str || "")
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
@@ -761,13 +674,86 @@ Music 12:00 PM - 1:00 PM Gym
         .replace(/'/g, "&#039;");
     }
 
+    const scheduleInput = document.getElementById("scheduleInput");
+    const scheduleOutput = document.getElementById("scheduleOutput");
+    const parseBtn = document.getElementById("parseBtn");
+    const sampleBtn = document.getElementById("sampleBtn");
+    const downloadBtn = document.getElementById("downloadBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const fileInput = document.getElementById("fileInput");
+    const successMsg = document.getElementById("successMsg");
+
     parseBtn.addEventListener("click", () => {
       parseSchedule(scheduleInput.value);
     });
 
     sampleBtn.addEventListener("click", () => {
-      scheduleInput.value = sampleScheduleText;
-      parseSchedule(sampleScheduleText);
+      const sampleText = `Monday	Tuesday	Wednesday	Thursday	Friday
+HR	
+[07:30 - 07:40]
+Homeroom
+Mr Elmaandi
+SS G09
+[07:30 - 07:40]
+Homeroom
+Mr Elmaandi
+SS G09
+[07:30 - 07:40]
+Homeroom
+Mr Elmaandi
+SS G09
+[07:30 - 07:40]
+Homeroom
+Mr Elmaandi
+SS G09
+[07:30 - 07:40]
+Homeroom
+Mr Elmaandi
+SS G09
+L1	
+[07:40 - 08:35]
+ISL B
+Mr Alameldin
+SS G05
+[07:40 - 08:35]
+ARB B
+Ms Ahmed
+SS G07
+[07:40 - 08:35]
+MATHS
+Ms Munawar
+SS G99
+[07:40 - 08:35]
+MATHS
+Ms Munawar
+SS G99
+[07:40 - 08:30]
+ARB B
+Ms Ahmed
+SS G07
+L2	
+[08:35 - 09:30]
+ENG A
+Ms Iqbal
+SS F83
+[08:35 - 09:30]
+ENG A
+Ms Iqbal
+SS F83
+[08:35 - 09:30]
+VART
+Mr Street
+SS G82/ G83
+[08:35 - 09:30]
+ARB B
+Ms Ahmed
+SS G07
+[08:30 - 09:20]
+PD
+Ms Katikar
+SS F19/ F22`;
+      scheduleInput.value = sampleText;
+      parseSchedule(sampleText);
     });
 
     downloadBtn.addEventListener("click", () => {
@@ -776,7 +762,7 @@ Music 12:00 PM - 1:00 PM Gym
 
     clearBtn.addEventListener("click", () => {
       scheduleInput.value = "";
-      scheduleOutput.innerHTML = '<div class="empty-state">No schedule entered yet. Paste class data to begin.</div>';
+      scheduleOutput.innerHTML = '<div class="empty-state">No schedule entered yet. Paste your timetable to begin.</div>';
       fileInput.value = "";
     });
 
@@ -798,9 +784,8 @@ Music 12:00 PM - 1:00 PM Gym
       reader.readAsText(file);
     });
 
-    // Auto-load sample on first page open so students see the app working immediately
-    scheduleInput.value = sampleScheduleText;
-    parseSchedule(sampleScheduleText);
+    // Initialize with empty state
+    scheduleOutput.innerHTML = '<div class="empty-state">Paste your school timetable to get started!</div>';
   </script>
 </body>
 </html>
