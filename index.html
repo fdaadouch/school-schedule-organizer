@@ -75,7 +75,7 @@
 
     textarea {
       width: 100%;
-      min-height: 180px;
+      min-height: 220px;
       resize: vertical;
       border: 1px solid var(--border);
       border-radius: 12px;
@@ -368,7 +368,6 @@
 Monday
 Biology 101 9:00 AM - 10:30 AM Room 302
 History 11:00 AM - 12:15 PM Room 105
-PE 3:00 PM - 4:00 PM Gym
 
 Tuesday
 English 9:30 AM - 10:45 AM Room 210
@@ -410,13 +409,13 @@ Chemistry Lab 1:00 PM - 2:30 PM Lab 10"></textarea>
     const roomDirectionRules = [
       {
         name: "Science Wing",
-        test: (roomText) => /(?:3\d\d|300s|science)/i.test(roomText),
-        direction: "(Third Floor - Science Wing)"
+        test: (roomText) => /(?:3\d\d|300s|science|SS\s*G|SS\s*F)/i.test(roomText),
+        direction: "(School building - Science / General classrooms)"
       },
       {
         name: "Main Building",
-        test: (roomText) => /(?:1\d\d|100s|main building)/i.test(roomText),
-        direction: "(First Floor - Main Building)"
+        test: (roomText) => /(?:1\d\d|100s|main building|SS\s*F)/i.test(roomText),
+        direction: "(Main Building - Front Hall)"
       },
       {
         name: "Gym / Athletics",
@@ -435,7 +434,6 @@ Chemistry Lab 1:00 PM - 2:30 PM Lab 10"></textarea>
 Monday
 Biology 101 9:00 AM - 10:30 AM Room 302
 History 11:00 AM - 12:15 PM Room 105
-Physical Education 3:00 PM - 4:00 PM Gym
 
 Tuesday
 English Literature 9:30 AM - 10:45 AM Room 210
@@ -504,6 +502,137 @@ Music 12:00 PM - 1:00 PM Gym
       return dayMap[normalized.toLowerCase()] || normalized || "Weekly Schedule";
     }
 
+    // ------------------------------------------------------------
+    // NEW: parse school timetable files like:
+    //   P	Monday	Tuesday	Wednesday	Thursday	Friday
+    //   HR	[07:30 - 07:40]	[07:30 - 07:40]	...
+    // or pasted blocks with times and room info repeated per day.
+    // ------------------------------------------------------------
+    function parseStructuredTimetable(rawText) {
+      const text = normalizeText(rawText).replace(/\t/g, "\n");
+      if (!text) return null;
+
+      const lines = text
+        .split(/\n+/)
+        .map(line => line.trim())
+        .filter(Boolean);
+
+      if (!lines.length) return null;
+
+      const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+      const detectedDays = [];
+
+      for (const day of dayNames) {
+        if (new RegExp(day, "i").test(text)) {
+          detectedDays.push(day);
+        }
+      }
+
+      if (!detectedDays.length) {
+        return null;
+      }
+
+      const entries = [];
+      let collecting = false;
+      let currentPeriod = null;
+      let blockLines = [];
+
+      const isDayHeader = (line) => /(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)/i.test(line) && line.length < 120;
+      const isMetadata = (line) => /secondary week|timetable week|p\s+Monday|Monday\s+Tuesday|Tuesday\s+Wednesday|Thursday\s+Friday/i.test(line) || /^P$/i.test(line);
+      const isPeriodLabel = (line) => /^(?:HR|SN|LN|L[1-8]|P|[A-Z]{2,5})$/i.test(line) && !isDayHeader(line) && !isMetadata(line);
+
+      for (const line of lines) {
+        if (isMetadata(line) || isDayHeader(line)) {
+          if (collecting) {
+            // finalize current period block if we already started collecting
+          }
+          continue;
+        }
+
+        if (isPeriodLabel(line)) {
+          if (collecting && blockLines.length > 0) {
+            const parsed = parsePeriodBlock(blockLines, detectedDays);
+            entries.push(...parsed);
+          }
+          collecting = true;
+          currentPeriod = line;
+          blockLines = [];
+          continue;
+        }
+
+        if (collecting) {
+          blockLines.push(line);
+        }
+      }
+
+      if (collecting && blockLines.length > 0) {
+        const parsed = parsePeriodBlock(blockLines, detectedDays);
+        entries.push(...parsed);
+      }
+
+      if (entries.length) {
+        return entries;
+      }
+
+      return null;
+    }
+
+    function parsePeriodBlock(blockLines, detectedDays) {
+      const groups = [];
+      let currentGroup = null;
+
+      for (const line of blockLines) {
+        const timeMatch = line.match(/^\[(\d{1,2}:\d{2}\s*(?:-|to)\s*\d{1,2}:\d{2}\s*(?:AM|PM)?)\]$/i)
+          || line.match(/^(\d{1,2}:\d{2}\s*(?:AM|PM)\s*-\s*\d{1,2}:\d{2}\s*(?:AM|PM))$/i);
+
+        if (timeMatch) {
+          if (currentGroup) groups.push(currentGroup);
+          currentGroup = { time: timeMatch[1].replace(/\s*[:-]\s*/g, " - ").trim(), values: [] };
+          continue;
+        }
+
+        if (!currentGroup) continue;
+
+        if (line.length === 0) continue;
+        currentGroup.values.push(line);
+      }
+
+      if (currentGroup) {
+        groups.push(currentGroup);
+      }
+
+      const results = [];
+
+      groups.forEach((group, index) => {
+        const day = detectedDays[index % detectedDays.length] || "Monday";
+        const cleanValues = group.values.filter(v => v && !/^\d{1,2}:\d{2}\s*(?:AM|PM)/i.test(v));
+
+        if (!cleanValues.length) return;
+
+        const subject = cleanValues[0] || "Class";
+        const teacher = cleanValues.find(v => /^(Mr|Ms|Miss|Mrs)\b/i.test(v)) || "Teacher not listed";
+        const room = cleanValues.find(v => /(?:SS\s*|Room|Lab|Gym|Hall|Studio|F\d+|G\d+)/i.test(v)) || "Room not listed";
+
+        results.push({
+          day,
+          time: normalizeTime(group.time),
+          room: room,
+          name: subject,
+          direction: getDirectionForRoom(room),
+          teacher: teacher
+        });
+      });
+
+      return results;
+    }
+
+    function normalizeTime(value) {
+      if (!value) return "Time not listed";
+      return value
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
     function parseSchedule(rawText) {
       const text = normalizeText(rawText);
       if (!text) {
@@ -511,6 +640,13 @@ Music 12:00 PM - 1:00 PM Gym
         return [];
       }
 
+      const structured = parseStructuredTimetable(text);
+      if (structured && structured.length) {
+        renderSchedule(structured);
+        return structured;
+      }
+
+      // Fallback for simpler single-line schedule blocks
       const lines = text.split("\n");
       const scheduleEntries = [];
       let currentDay = "Weekly Schedule";
@@ -522,21 +658,16 @@ Music 12:00 PM - 1:00 PM Gym
         const dayMatch = cleanLine.match(/\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/i);
         const timeMatch = cleanLine.match(/(\d{1,2}:\d{2}\s*(?:AM|PM)\s*-\s*\d{1,2}:\d{2}\s*(?:AM|PM))/i);
 
-        // If the line is a day heading, update the active day
         if (dayMatch) {
           currentDay = formatDayName(dayMatch[1]);
-          if (!timeMatch) {
-            return;
-          }
+          if (!timeMatch) return;
         }
 
         if (!timeMatch) return;
 
-        // Look for room patterns like "Room 302", "Lab 10", or "Gym"
-        const roomMatch = cleanLine.match(/(?:Room|Rm|Lab|Gym|Studio|Hall)\s*#?\s*\d+[A-Za-z]?/i);
-        const roomText = roomMatch ? roomMatch[0] : "Unknown Room";
+        const roomMatch = cleanLine.match(/(?:Room|Rm|Lab|Gym|Studio|Hall|SS\s*F\d+|SS\s*G\d+)\s*#?\s*[A-Za-z0-9/ ]+/i);
+        const roomText = roomMatch ? roomMatch[0].replace(/^.*?(Room|Lab|Gym|Hall|Studio|SS)/i, "$1").trim() : "Unknown Room";
 
-        // Remove day, time, and room from the text to get the class name
         let className = cleanLine
           .replace(dayMatch ? dayMatch[0] : "", "")
           .replace(timeMatch[0], "")
@@ -649,7 +780,6 @@ Music 12:00 PM - 1:00 PM Gym
       fileInput.value = "";
     });
 
-    // File upload handler
     fileInput.addEventListener("change", (e) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -660,7 +790,6 @@ Music 12:00 PM - 1:00 PM Gym
         scheduleInput.value = text;
         parseSchedule(text);
 
-        // Show success message
         successMsg.style.display = "block";
         setTimeout(() => {
           successMsg.style.display = "none";
